@@ -38,30 +38,11 @@ FusionEKF::FusionEKF() {
             0, 0, 0, 0,
             0, 0, 0, 0;
 
-
-
-    // initialize kalman filter variables
-
-    // will be overridden by first measurement
-    VectorXd x(4);
-
-    MatrixXd P(4, 4);
-    P << 1, 0, 0, 0,
+    ekf_.P_ = MatrixXd(4, 4);
+    ekf_.P_ << 1, 0, 0, 0,
             0, 1, 0, 0,
             0, 0, 1000, 0,
             0, 0, 0, 1000;
-
-    MatrixXd F(4, 4);
-    F << 1, 0, 1, 0,
-            0, 1, 0, 1,
-            0, 0, 1, 0,
-            0, 0, 0, 1;
-
-    // will be set by each measurement
-    MatrixXd Q(4, 4);
-
-    ekf_.Init(x, P, F, H_laser_, R_laser_, Q);
-
 }
 
 /**
@@ -127,20 +108,22 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
     previous_timestamp_ = measurement_pack.timestamp_;
 
     // update F
+    ekf_.F_ = MatrixXd(4, 4);
     ekf_.F_ << 1, 0, dt, 0,
             0, 1, 0, dt,
             0, 0, 1, 0,
             0, 0, 0, 1;
 
     // update Q noise covariance
-    double noise = 9;
+    double noise = 9.0;
     double dt2 = dt * dt;
     double dt3 = dt2 * dt;
     double dt4 = dt3 * dt;
-    ekf_.Q_ << dt4 / 4 * noise, 0, dt3 / 2 * noise, 0,
-            0, dt4 / 4 * noise, 0, dt3 / 2 * noise,
-            dt3 / 2 * noise, 0, dt2 * noise, 0,
-            0, dt3 / 2 * noise, 0, dt2 * noise;
+    ekf_.Q_ = MatrixXd(4, 4);
+    ekf_.Q_ << dt4 / 4.0 * noise, 0, dt3 / 2.0 * noise, 0,
+            0, dt4 / 4.0 * noise, 0, dt3 / 2.0 * noise,
+            dt3 / 2.0 * noise, 0, dt2 * noise, 0,
+            0, dt3 / 2.0 * noise, 0, dt2 * noise;
 
     ekf_.Predict();
 
@@ -157,12 +140,15 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
 
     VectorXd raw = measurement_pack.raw_measurements_;
 
-    // TODO: update state & covariance matrices
     if (measurement_pack.sensor_type_ == MeasurementPackage::RADAR) {
-        // Radar updates
+        // Radar updates - simply use Jacobian here, rest is the same
+        ekf_.H_ = tools.CalculateJacobian(ekf_.x_);
+        ekf_.R_ = R_radar_;
         ekf_.UpdateEKF(raw);
     } else {
         // Laser updates
+        ekf_.H_ = H_laser_;
+        ekf_.R_ = R_laser_;
         ekf_.Update(raw);
     }
 
