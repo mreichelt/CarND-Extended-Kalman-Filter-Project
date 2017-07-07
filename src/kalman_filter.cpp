@@ -56,6 +56,7 @@ void KalmanFilter::UpdateEKF(const VectorXd &z) {
     h << ro, theta, ro_dot;
 
     VectorXd y = z - h;
+    y(1) = normalizeAngle(y(1));
 
     // now continue using the same ol' kalman filter equations
     MatrixXd Ht = H_.transpose();
